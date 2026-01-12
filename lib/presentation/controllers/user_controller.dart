@@ -15,12 +15,14 @@ class UserController extends GetxController {
   var isLoading = true.obs;
   var isPaginationLoading = false.obs;
   var errorMessage = ''.obs;
+  var searchText = "".obs;
 
   // Pagination Variables
   int currentPage = 1;
   bool hasMoreData = true;
   ScrollController scrollController = ScrollController();
   TextEditingController searchController = TextEditingController();
+  final FocusNode searchFocusNode = FocusNode();
 
   @override
   void onInit() {
@@ -35,6 +37,19 @@ class UserController extends GetxController {
         loadMoreUsers();
       }
     });
+  }
+
+  //update your existing filter method or call this one
+  void onSearchChanged(String value) {
+    searchText.value = value;
+    filterUsers(value); // This is your existing filtering logic
+  }
+
+  // Method to reset everything
+  void clearSearch() {
+    searchController.clear();
+    searchText.value = "";
+    filterUsers(""); // Reset the list to show all users
   }
 
   // 1. Initial Load
@@ -52,6 +67,13 @@ class UserController extends GetxController {
     } finally {
       isLoading(false);
     }
+  }
+
+  @override
+  void onClose() {
+    searchController.dispose();
+    searchFocusNode.dispose(); // Always dispose focus nodes
+    super.onClose();
   }
 
   // 2. Load More (Pagination)
