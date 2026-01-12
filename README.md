@@ -20,6 +20,7 @@ The API URL has a part of Cloudflare that causes browser only restrictions. So I
 **Responsive UI**: Optimized typography and spacing designed to work across various screen sizes and orientations.
 
 ---
+## 📱Screenshots [https://drive.google.com/drive/folders/1SNLGSqJ6NjKqStQal-NoMv4vI-xaEPwN?usp=sharing]
 
 ## 🛠 Tech Stack
 **Framework**: Flutter
