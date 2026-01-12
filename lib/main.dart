@@ -7,6 +7,7 @@ import 'package:interview_task/presentation/pages/user_list_screen.dart';
 
 import 'data/models/hive_data_model.dart';
 import 'data/models/user_model.dart';
+import 'data/networks/client_factory.dart';
 import 'data/networks/network_info.dart';
 import 'data/repositories/data_repositories_impl.dart';
 import 'presentation/controllers/user_controller.dart';
@@ -46,9 +47,9 @@ class MyApp extends StatelessWidget {
 class AppBinding extends Bindings {
   final Box<UserModel> userBox;
   AppBinding(this.userBox);
-
   @override
   void dependencies() {
+    final http.Client nativeClient = ClientFactory.create();
     // Services
     Get.lazyPut<NetworkInfo>(() => NetworkInfoImpl(connectionChecker: Get.find()));
     Get.lazyPut(() => http.Client());
@@ -56,7 +57,7 @@ class AppBinding extends Bindings {
 
     // Repository
     Get.lazyPut(() => UserRepositoryImpl(
-      client: Get.find(),
+      client: nativeClient,
       userBox: userBox,
       connectivity: Get.find(),
     ));

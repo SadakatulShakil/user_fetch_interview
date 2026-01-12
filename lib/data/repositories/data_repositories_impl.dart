@@ -1,11 +1,12 @@
 import 'dart:convert';
-import 'dart:io'; // Needed for InternetAddress
+import 'dart:io';
+import 'dart:async'; // Added for TimeoutException
 import 'package:http/http.dart' as http;
 import 'package:hive/hive.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:interview_task/data/repositories/user_repositories.dart'; // Adjust path if needed
+import 'package:interview_task/data/repositories/user_repositories.dart';
+import '../models/hive_data_model.dart';
 import '../models/user_model.dart';
-import '../models/hive_data_model.dart'; // Ensure User entity is imported here
 
 class UserRepositoryImpl implements UserRepository {
   final http.Client client;
@@ -19,13 +20,12 @@ class UserRepositoryImpl implements UserRepository {
   });
 
   @override
-  Future<List<User>> getUsers(int page) async {
-    // 1. Check if connected to a Network Interface (WiFi/Mobile)
+  Future<List<UserModel>> getUsers(int page) async {
+    // 1. Check Connectivity
     var connectivityResult = await connectivity.checkConnectivity();
     bool hasNetworkInterface = connectivityResult.contains(ConnectivityResult.mobile) ||
         connectivityResult.contains(ConnectivityResult.wifi);
 
-    // 2. Check for ACTUAL Internet Access
     bool hasInternetAccess = false;
     if (hasNetworkInterface) {
       try {
@@ -36,49 +36,55 @@ class UserRepositoryImpl implements UserRepository {
       }
     }
 
+    print("🔍 Network Interface: $hasNetworkInterface, Internet Access: $hasInternetAccess");
+
     if (hasInternetAccess) {
       try {
         print("🌍 Attempting API call for page $page...");
 
+        // Note: JSONPlaceholder uses _page and _limit
         final response = await client.get(
-          Uri.parse('https://reqres.in/api/users?page=$page&per_page=10'),
-        );
+          Uri.parse('https://jsonplaceholder.typicode.com/users?_page=$page&_limit=6'),
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36',
+            'Accept': 'application/json',
+          },
+        ).timeout(const Duration(seconds: 15));
 
         if (response.statusCode == 200) {
-          final data = json.decode(response.body);
-          final List usersJson = data['data'];
+          // FIXED LINE: Decode as a List, not a Map
+          final List<dynamic> usersJson = json.decode(response.body);
 
           List<UserModel> users = usersJson
               .map((json) => UserModel.fromJson(json))
               .toList();
 
-          // 3. Save to Hive (Cache)
+          // Save to Hive (Cache)
           print("💾 Caching ${users.length} users to Hive...");
+          if (page == 1) await userBox.clear();
           for (var user in users) {
             await userBox.put(user.id, user);
           }
 
           return users;
         } else {
-          throw Exception('Server returned status: ${response.statusCode}');
+          print("❌ Server Error: ${response.statusCode}. Trying local cache...");
+          return _getLocalUsers();
         }
       } catch (e) {
-        // 🔴 THIS PRINT IS CRITICAL TO DEBUGGING
-        print("❌ API Failed despite having internet. Error: $e");
-
-        // Fallback to local if API fails
+        print("❌ API Failed. Error: $e");
         return _getLocalUsers();
       }
     } else {
-      print("⚠️ No real internet access detected. Loading from cache.");
+      print("⚠️ No internet detected. Loading from cache.");
       return _getLocalUsers();
     }
   }
 
-  List<User> _getLocalUsers() {
+  List<UserModel> _getLocalUsers() {
     if (userBox.isEmpty) {
-      // Throwing exception here allows the Controller to show "No Data" message
-      throw Exception('No internet and no local data.');
+      print("📂 Cache is empty.");
+      return []; // Return empty list instead of throwing Exception
     }
     print("📂 Loaded ${userBox.length} users from Hive.");
     return userBox.values.toList();
